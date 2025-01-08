@@ -25,11 +25,12 @@ def extract_lines_which_have_error_in_them(input_string):
         return None
 def get_error_name(input_list):
   for ele in input_list:
-      match = re.search(r'(\w+Error)', ele)  # Looks for a word ending with "Error"
+      #match = re.search(r'(\w+Error)', ele)  # Looks for a word ending with "Error"
+      match = re.search(r'([a-zA-Z]+Error)' , ele)
       return match.group(1) if match else None
 def get_exception_name(input_list):
     for ele in input_list:
-        match = re.search(r'(\w+Exception)', ele)  # Looks for a word ending with "Exception"
+        match = re.search(r'([a-zA-Z]+Exception)', ele)  # Looks for a word ending with "Exception"
         if match:
             return match.group(1)
     return None
@@ -39,12 +40,15 @@ def get_error_description(input_list):
       return match.group(1) if match else None
 def extract_code_expected(text):
     # Regex to find the number after 'find'
-    pattern = r'find \[(\d+)\]'
+    pattern = r'expected \[(\d+)\]'
+    #pattern = r'expected \[([^\]]+)\]'
     match = re.search(pattern, text)
     return int(match.group(1)) if match else None
 def extract_code_found(text):
     # Regex to find the number after 'found'
     pattern = r'found \[(\d+)\]'
+    #pattern = r'found \[([^\]]+)\]'
+
     match = re.search(pattern, text)
     return int(match.group(1)) if match else None
 def filtering(df , column1 , filtering_value , expectation = "Equals"):
@@ -59,11 +63,11 @@ def filtering(df , column1 , filtering_value , expectation = "Equals"):
   return filtered_data_frame
 def test_cases_with_invalid_names(casesnames):
   # Generalized regex pattern for valid test case names
-  pattern = r"^[A-Za-z]+_[A-Za-z]+[A-Za-z0-9]*_[A-Za-z]+[A-Za-z0-9]*$"
-  if not re.match(pattern, casesnames):
+  pattern = r'^TC_\d+$'
+  if re.match(pattern, casesnames):
     return "Test Cases Name Not Proper"
-  else:
-    None
+  return "Name is valid"
+
 
 ################################################################################################
 
@@ -85,6 +89,78 @@ if uploaded_file is not None:
         st.dataframe(df)
     else:
         st.write("Please upload an XML file.")
+
+###################################### Jacoco Code ##########################################################
+
+st.header("Latest Jacoco Report - OE ")
+jacocoreport_button = st.button("Click here to see the latest Jacoco Report")
+
+try:
+    report = pd.read_html("index.html")
+    jacoco_df = pd.DataFrame(report[0])
+    jacoco_df.rename(columns={'Element': 'Packages', 'Cov.': 'Instructions Coverage', 'Cov..1': 'Branch Coverage',
+                              'Missed.1': 'Missed Lines in Code', 'Lines': 'Total Lines in Code',
+                              'Missed.2': 'Missed methods in Package', 'Methods': 'Methods in Package',
+                              'Missed.3': 'Missed classes in Package'}, inplace=True)
+    jacoco_df = jacoco_df[jacoco_df['Packages'] != 'Total']
+except Exception as e:
+    st.write(f"Following error occured {e}")
+
+if jacocoreport_button:
+    jacoco_df
+
+jacocoreport_button_class = st.button("Click here to see the class level Jacoco Report")
+if jacocoreport_button_class:
+    st.write("The data for the class level Jacoco Report is : ")
+    st.write('Total classes in the code are : ', jacoco_df['Classes'].sum())
+    st.write('Missed classes in the code are : ', jacoco_df['Missed classes in Package'].sum())
+    st.write('The percentage of the classes covered is : ',
+             (jacoco_df['Classes'].sum() - jacoco_df['Missed classes in Package'].sum()) / jacoco_df['Classes'].sum() * 100)
+
+    jacoco_df[['Packages' , 'Missed classes in Package' , 'Classes']]
+
+    plt.figure(figsize=(2, 2))
+    plt.pie([jacoco_df['Missed classes in Package'].sum(), jacoco_df['Classes'].sum() - jacoco_df['Missed classes in Package'].sum()], labels=['Missed', 'Covered'], autopct='%1.1f%%', startangle=90)
+    plt.title("Overall Missed Classes vs Total Classes")
+    plt.axis('equal')
+    st.pyplot(plt)
+
+
+jacocoreport_button_method = st.button("Click here to see the method level Jacoco Report")
+if jacocoreport_button_method:
+    st.write("The data for the method level Jacoco Report is : ")
+
+    st.write('Total methods in the code are : ', jacoco_df['Methods in Package'].sum())
+    st.write('Missed methods in the code are : ', jacoco_df['Missed methods in Package'].sum())
+    st.write('The percentage of the methods covered is : ',
+             (jacoco_df['Methods in Package'].sum() - jacoco_df['Missed methods in Package'].sum()) / jacoco_df[
+                 'Methods in Package'].sum() * 100)
+    jacoco_df[['Packages' , 'Missed methods in Package' , 'Methods in Package']]
+
+    plt.figure(figsize=(2, 2))
+    plt.pie([jacoco_df['Missed methods in Package'].sum(), jacoco_df['Methods in Package'].sum() - jacoco_df['Missed methods in Package'].sum()], labels=['Missed', 'Covered'], autopct='%1.1f%%', startangle=90)
+    plt.title("Overall Missed Methods vs Total Methods")
+    plt.axis('equal')
+    st.pyplot(plt)
+jacocoreport_button_lines = st.button("Click here to see the lines level Jacoco Report")
+if jacocoreport_button_lines:
+    st.write("The data for the lines level Jacoco Report is : ")
+    total_lines = jacoco_df['Total Lines in Code'].sum()
+    total_missed_lines = jacoco_df['Missed Lines in Code'].sum()
+    st.write('Total lines in the code are : ' , total_lines)
+    st.write('Missed lines in the code are : ' , total_missed_lines)
+    st.write('The percentage of the code covered is : ' , (jacoco_df['Total Lines in Code'].sum() - jacoco_df['Missed Lines in Code'].sum()) / jacoco_df['Total Lines in Code'].sum() * 100)
+    jacoco_df[['Packages' , 'Missed Lines in Code' , 'Total Lines in Code']]
+    plt.figure(figsize=(2, 2))
+    plt.pie([total_missed_lines, total_lines - total_missed_lines], labels=['Missed', 'Covered'], autopct='%1.1f%%', startangle=90)
+    plt.title("Overall Missed Lines vs Total Lines")
+    plt.axis('equal')
+    st.pyplot(plt)
+
+
+
+#################################################################################################################
+
 if uploaded_file is not None:
 
 ########### Code for finding the test cases which are taking time longer than expected ###########
@@ -114,12 +190,13 @@ if uploaded_file is not None:
         error_rows.loc[:, 'Status_code_expected'] = error_rows["error_description"].apply(extract_code_expected)
         error_rows.loc[:, 'Status_code_found'] = error_rows["error_description"].apply(extract_code_found)
 
+
 ############################################## Code to see the cases which are failing ########################################################################
 
     st.header("Do you want to see the Test Cases which are failing ?")
     button_testcase_failing = st.button("Yes", key="button_testcase_failing")
     if button_testcase_failing:
-        error_rows[["name", "error", "error_name", "exception_name", "error_description", "Status_code_expected","Status_code_found"]]
+        error_rows[["name", "error", "error_name", "exception_name", "error_description", "Status_code_expected","Status_code_found" ]]
 
 ########################################## Error Searching in File #################################################
 
@@ -130,7 +207,7 @@ if uploaded_file is not None:
     button_error_search = st.button("Search" , key = "button_error_search")
     if button_error_search:
         filtered = filtering(error_rows, column1="error_name", filtering_value=Error)
-        filtered
+        filtered[["classname", "name" , "time" ,"failure" , "error" , "error_name" , "error_description" , "Status_code_expected" , "Status_code_found"]]
     st.write("The types of exceptions found in the report are:")
     grouped_exception_data = pd.DataFrame(error_rows.groupby("exception_name").count())
     grouped_exception_data["failure"]
@@ -143,21 +220,13 @@ if uploaded_file is not None:
 ########################################## Error Searches in file based upon Status Code #################################################
 
     st.header("List of Status Codes Found")
-    statuscode_unique_values = error_rows['Status_code_found'].unique()
+    statuscode_unique_values = error_rows['Status_code_found'].value_counts()
     statuscode_unique_values
     statuscode = st.number_input("Enter Status Code", step=1)
     button_statuscode_search = st.button("Search", key="button_statuscode_search")
     if button_statuscode_search:
         filtered = filtering(error_rows , column1 = "Status_code_found" , filtering_value = statuscode , expectation = "Equals")
         filtered
-
-########################################## Cases which might have names which are not having names proper #################################################
-    st.header("Do you want to see test cases which might have names not proper ?")
-    button_cases_name_not_proper = st.button("Yes", key="button_cases_name_not_proper")
-    if button_cases_name_not_proper:
-        df["Cases Name not Proper"] = df["name"].apply(test_cases_with_invalid_names)
-        cases_name_not_proper = filtering(df, column1="Cases Name not Proper", filtering_value="Test Cases Name Not Proper",expectation="Equals")
-        cases_name_not_proper[["name", "Cases Name not Proper"]]
 
 ########################################## Plotting the data #################################################
     st.header("Do you want to see the plots for the data ?")
@@ -171,7 +240,7 @@ if uploaded_file is not None:
             ax.set_title("Errors vs Count Plot")
             ax.set_xlabel('Errors')
             ax.set_ylabel('Counts of Errors')
-            ax.set_xticklabels(grouped_error_Data_byname.index, rotation=0)
+            ax.set_xticklabels(grouped_error_Data_byname.index, rotation=45)
             st.pyplot(fig)
         except Exception as e:
             print(f"Following Error Occured {e}")
@@ -184,10 +253,26 @@ if uploaded_file is not None:
             ax.set_title("Exceptions vs Count Plot")
             ax.set_xlabel('Exceptions')
             ax.set_ylabel('Counts of Exceptions')
-            ax.set_xticklabels(grouped_exception_data_name.index, rotation=0)
+            ax.set_xticklabels(grouped_exception_data_name.index, rotation=45)
 
             # Show plot in Streamlit
             st.pyplot(fig)  # Display the plot in Streamlit
 
         except Exception as e:
             st.write(f"Following error occurred: {e}")
+
+
+########################################## Cases which might have names which are not having names proper #################################################
+    st.header("Do you want to see test cases which might have names not proper ?")
+    button_cases_name_not_proper = st.button("Yes", key="button_cases_name_not_proper")
+    if button_cases_name_not_proper:
+        df["Cases Name not Proper"] = df["name"].apply(test_cases_with_invalid_names)
+        cases_name_not_proper = filtering(df, column1="Cases Name not Proper", filtering_value="Test Cases Name Not Proper",expectation="Equals")
+        st.write("Number of test case which do not have correct names are : " , cases_name_not_proper.shape[0])
+        cases_name_not_proper[["classname" , "name"]]
+
+############################################################################################################
+
+
+
+
